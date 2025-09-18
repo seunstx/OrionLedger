@@ -1,8 +1,8 @@
 # OrionLedger 🏠⭐
 
-> Immutable Property Registry with Secure Escrow System in the Constellations
+> Immutable Property Registry with Secure Escrow System and Decentralized Dispute Resolution
 
-OrionLedger is a decentralized platform built on Stacks blockchain that enables secure registration and verification of property ownership on-chain. Property deeds are minted as NFTs with comprehensive metadata, full ownership history tracking, and secure escrow contracts for property sales.
+OrionLedger is a decentralized platform built on Stacks blockchain that enables secure registration and verification of property ownership on-chain. Property deeds are minted as NFTs with comprehensive metadata, full ownership history tracking, secure escrow contracts for property sales, and a robust decentralized arbitration system for ownership disputes.
 
 ## ✨ Features
 
@@ -14,6 +14,9 @@ OrionLedger is a decentralized platform built on Stacks blockchain that enables 
 - **🔒 Escrow System**: Multi-signature escrow contracts for secure property sales with automated fund management
 - **Multi-Party Validation**: Seller, buyer, and arbiter signature requirements for transaction security
 - **Deposit Management**: Secure handling of buyer deposits with automatic refunds on cancellation
+- **⚖️ Dispute Resolution**: Decentralized arbitration system for ownership disputes with evidence submission
+- **Multi-Arbitrator Consensus**: 3-5 arbitrator voting system with majority ruling requirements
+- **Evidence Management**: On-chain evidence submission and IPFS hash storage for dispute documentation
 
 ## 🚀 Getting Started
 
@@ -60,6 +63,17 @@ clarinet test
 - `get-escrow-funds(escrow-id)` - Get current escrow balance
 - `all-parties-signed(escrow-id)` - Check if all parties have signed
 
+**Dispute Functions:**
+- `get-dispute-details(dispute-id)` - Retrieve dispute information
+- `get-property-dispute(property-id)` - Get dispute ID for a property
+- `get-total-disputes()` - Get total disputes created
+- `is-dispute-expired(dispute-id)` - Check if dispute has expired
+- `get-dispute-evidence-count(dispute-id)` - Get number of evidence submissions
+- `get-dispute-evidence-entry(dispute-id, evidence-id)` - Get specific evidence entry
+- `get-arbitrator-vote(dispute-id, arbitrator)` - Get arbitrator's vote details
+- `has-arbitrator-voted(dispute-id, arbitrator)` - Check if arbitrator has voted
+- `is-arbitrator(dispute-id, arbitrator)` - Verify arbitrator role
+
 ### Public Functions
 
 **Property Functions:**
@@ -74,6 +88,38 @@ clarinet test
 - `sign-escrow(escrow-id)` - Sign escrow agreement (all parties)
 - `complete-escrow(escrow-id)` - Execute property transfer and fund release
 - `cancel-escrow(escrow-id)` - Cancel escrow and refund deposits
+
+**Dispute Functions:**
+- `create-dispute(property-id, respondent, dispute-type, arbitrators, duration-blocks)` - Create ownership dispute
+- `submit-evidence(dispute-id, evidence-hash, description)` - Submit evidence for dispute
+- `vote-on-dispute(dispute-id, vote, reasoning)` - Arbitrator voting on disputes
+- `close-expired-dispute(dispute-id)` - Close expired disputes
+
+## ⚖️ Dispute Resolution System
+
+### 1. Creating a Dispute
+- Any party can challenge property ownership by creating a dispute
+- Must specify respondent, dispute type, and select 3-5 arbitrators
+- System prevents disputes on properties with active escrows
+- Disputes have configurable expiration periods
+
+### 2. Evidence Submission
+- Both claimant and respondent can submit evidence
+- Evidence stored as IPFS hashes with descriptions
+- All evidence submissions are timestamped and immutable
+- Support for multiple evidence entries per dispute
+
+### 3. Arbitrator Voting
+- Selected arbitrators review evidence and cast votes
+- Each arbitrator provides reasoning for their decision
+- Majority consensus (>50%) required for dispute resolution
+- Votes are final and cannot be changed
+
+### 4. Dispute Resolution
+- **Claimant Wins**: Property transferred to claimant automatically
+- **Respondent Wins**: Current ownership maintained
+- **Expiration**: Disputes can be closed after expiration period
+- All outcomes recorded in property history
 
 ## 🔐 Escrow System Workflow
 
@@ -94,13 +140,16 @@ clarinet test
 
 ## 🏗️ Architecture
 
-The contract uses five main data structures:
+The contract uses eight main data structures:
 
 1. **NFT Collection**: `property-deed` tokens representing unique properties
 2. **Property Registry**: Metadata storage for each property
 3. **History Tracking**: Complete ownership transfer history
 4. **Escrow Registry**: Multi-signature escrow contract details
 5. **Escrow Funds**: Secure fund management for each escrow
+6. **Dispute Registry**: Arbitration contract details and voting status
+7. **Evidence Storage**: On-chain evidence submissions with IPFS hashes
+8. **Arbitrator Votes**: Individual arbitrator decisions and reasoning
 
 ## 🔒 Security Features
 
@@ -111,7 +160,10 @@ The contract uses five main data structures:
 - Multi-signature escrow validation
 - Automatic fund management and refunds
 - Expiration-based escrow protection
-- Prevention of duplicate escrows per property
+- Prevention of duplicate escrows/disputes per property
+- Majority consensus requirement for dispute resolution
+- Evidence integrity through cryptographic hashes
+- Arbitrator role validation and vote finality
 
 ## 🛠️ Development
 
@@ -141,8 +193,50 @@ The contract uses five main data structures:
 - `u112` - Escrow expired
 - `u113` - Invalid price
 - `u114` - Invalid duration
+- `u115` - Dispute not found
+- `u116` - Dispute already exists
+- `u117` - Invalid evidence
+- `u118` - Dispute not active
+- `u119` - Invalid arbitrator
+- `u120` - Dispute expired
+- `u121` - Already voted
+- `u122` - Not arbitrator
+- `u123` - Invalid ruling
 
 ## 🚀 Usage Examples
+
+### Creating a Dispute
+```clarity
+(contract-call? .orionledger create-dispute
+    u1                                    ;; property-id
+    'SP2J6ZY48GV1EZ5V2V5RB9MP66SW86PYKKNRV9EJ7  ;; respondent
+    "ownership-challenge"                 ;; dispute-type
+    (list                                ;; arbitrators (3-5)
+        'SP3FBR2AGK5H9QBDH3EEN6DF8EK8JY7RX8QJ5SVTE
+        'SP1HTBVD3JG9C05J7HBJTHGR0GGW7KXW28M5JS8QE
+        'SP2C2YFP12AJZB4MABJBAJ55XECVS7E4PMMZ89YZR
+    )
+    u2016                               ;; duration-blocks (~14 days)
+)
+```
+
+### Submitting Evidence
+```clarity
+(contract-call? .orionledger submit-evidence
+    u1                                  ;; dispute-id
+    "QmX7M9CiYXjVkZk9BxjV8YzRqK4nZ2P1A3sB5c6D7e8F9g0H"  ;; IPFS hash
+    "Property ownership documents and title deeds"         ;; description
+)
+```
+
+### Arbitrator Voting
+```clarity
+(contract-call? .orionledger vote-on-dispute
+    u1                                  ;; dispute-id
+    "claimant"                         ;; vote (claimant/respondent)
+    "Evidence clearly supports claimant's ownership claim"  ;; reasoning
+)
+```
 
 ### Creating an Escrow Contract
 ```clarity
@@ -178,7 +272,7 @@ The contract uses five main data structures:
 
 ## 🌟 Future Roadmap
 
-- Dispute Resolution: Add decentralized arbitration system for ownership disputes with evidence submission
+- ✅ **Dispute Resolution**: Add decentralized arbitration system for ownership disputes with evidence submission
 - Property Valuation: Integrate price oracles and automated property valuation models
 - Rental Management: Enable property rental agreements with automated rent collection
 - Property Fragmentation: Allow fractional ownership through tokenization of property shares
@@ -187,4 +281,4 @@ The contract uses five main data structures:
 - Document Storage: Add IPFS integration for storing property documents and images
 - Auction Mechanism: Create on-chain property auction system with bidding functionality
 - Cross-Chain Bridge: Enable property deed transfers across different blockchain networks
-
+- Advanced Arbitration: Multi-tiered arbitration with appeals process and specialized arbitrator pools
